@@ -1,0 +1,118 @@
+import express, { Request, Response } from 'express';
+import TimeEntry from '../models/TimeEntry.js';
+
+const router = express.Router();
+
+// POST /api/track/start - Start tracking a category
+router.post('/start', async (req: Request, res: Response) => {
+  try {
+    const { category } = req.body;
+
+    if (!category) {
+      return res.status(400).json({ error: 'Category is required' });
+    }
+
+    const validCategories = ['Python', 'SQL', 'Datasetu', 'Break', 'TT'];
+    if (!validCategories.includes(category)) {
+      return res.status(400).json({ error: 'Invalid category' });
+    }
+
+    const now = new Date();
+    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    // Stop any running entry
+    const runningEntry = await TimeEntry.findOne({ endTime: null });
+    if (runningEntry) {
+      const duration = Math.floor((now.getTime() - runningEntry.startTime.getTime()) / 1000);
+      runningEntry.endTime = now;
+      runningEntry.durationSeconds = duration;
+      await runningEntry.save();
+    }
+
+    // Start new entry
+    const newEntry = await TimeEntry.create({
+      category,
+      startTime: now,
+      endTime: null,
+      date: today,
+      durationSeconds: 0,
+    });
+
+    res.json({ success: true, entry: newEntry });
+  } catch (error) {
+    console.error('Start tracking error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/track/stop - Stop current tracking
+router.post('/stop', async (req: Request, res: Response) => {
+  try {
+    const runningEntry = await TimeEntry.findOne({ endTime: null });
+
+    if (!runningEntry) {
+      return res.status(404).json({ error: 'No running entry found' });
+    }
+
+    const now = new Date();
+    const duration = Math.floor((now.getTime() - runningEntry.startTime.getTime()) / 1000);
+    
+    runningEntry.endTime = now;
+    runningEntry.durationSeconds = duration;
+    await runningEntry.save();
+
+    res.json({ success: true, entry: runningEntry });
+  } catch (error) {
+    console.error('Stop tracking error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/track/today - Get today's totals and current running entry
+router.get('/today', async (req: Request, res: Response) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get all today's entries
+    const entries = await TimeEntry.find({ date: today });
+
+    // Find running entry
+    const runningEntry = await TimeEntry.findOne({ endTime: null });
+
+    // Calculate totals per category
+    const totals: Record<string, number> = {
+      Python: 0,
+      SQL: 0,
+      Datasetu: 0,
+      Break: 0,
+      TT: 0,
+    };
+
+    const now = new Date();
+    entries.forEach((entry) => {
+      let duration = entry.durationSeconds;
+      
+      // If entry is still running, calculate current duration
+      if (!entry.endTime && runningEntry && entry._id.equals(runningEntry._id)) {
+        duration = Math.floor((now.getTime() - entry.startTime.getTime()) / 1000);
+      }
+      
+      totals[entry.category] += duration;
+    });
+
+    res.json({
+      success: true,
+      totals,
+      runningEntry: runningEntry ? {
+        _id: runningEntry._id,
+        category: runningEntry.category,
+        startTime: runningEntry.startTime,
+      } : null,
+    });
+  } catch (error) {
+    console.error('Get today error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+export default router;
