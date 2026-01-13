@@ -11,7 +11,8 @@ dotenv.config({ path: envPath });
 
 console.log('Environment loaded:', {
   MONGODB_URI: process.env.MONGODB_URI ? 'Set' : 'Not Set',
-  PORT: process.env.PORT
+  PORT: process.env.PORT,
+  FRONTEND_URL: process.env.FRONTEND_URL
 });
 
 import express from 'express';
@@ -23,7 +24,18 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+app.use(cors({
+  origin: [
+    frontendUrl,
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'https://time-tracker-frontend-git-main-itachis-projects-6e935950.vercel.app',
+    /\.vercel\.app$/
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // Connect to MongoDB
