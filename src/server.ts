@@ -38,6 +38,8 @@ dbConnect();
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/track', trackRoutes);
+import analyticsRoutes from './routes/analytics.js';
+app.use('/api/analytics', analyticsRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Time Tracker API' });
