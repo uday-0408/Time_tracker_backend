@@ -1,0 +1,12 @@
+import express from 'express';
+import { getPomodoroToday, startWork, completePomodoro, completeBreak, cancelPomodoro, pausePomodoro, resumePomodoro, setMode, } from '../controllers/pomodoro.controller.js';
+const router = express.Router();
+router.get('/today', getPomodoroToday);
+router.post('/start-work', startWork);
+router.post('/complete-work', completePomodoro);
+router.post('/complete-break', completeBreak);
+router.post('/cancel', cancelPomodoro);
+router.post('/pause', pausePomodoro);
+router.post('/resume', resumePomodoro);
+router.put('/mode', setMode);
+export default router;

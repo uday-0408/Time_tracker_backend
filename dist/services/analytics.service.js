@@ -1,15 +1,15 @@
 import TimeEntry from '../models/TimeEntry.js';
 import { CategoryService } from './category.service.js';
-
 export class AnalyticsService {
-    static async getProductivityStats(userId: string, range: 'day' | 'week' | 'month') {
+    static async getProductivityStats(userId, range) {
         const now = new Date();
         const startDate = new Date();
-
-        if (range === 'day') startDate.setHours(0, 0, 0, 0);
-        else if (range === 'week') startDate.setDate(now.getDate() - 7);
-        else startDate.setDate(now.getDate() - 30);
-
+        if (range === 'day')
+            startDate.setHours(0, 0, 0, 0);
+        else if (range === 'week')
+            startDate.setDate(now.getDate() - 7);
+        else
+            startDate.setDate(now.getDate() - 30);
         const entries = await TimeEntry.find({
             userId,
             startTime: { $gte: startDate },
@@ -17,27 +17,25 @@ export class AnalyticsService {
         })
             .sort({ startTime: 1 })
             .lean();
-
         // Use user's own productive categories instead of a hardcoded list
         const productiveCategories = new Set(await CategoryService.getProductiveNames(userId));
         let productiveSeconds = 0;
         let totalSeconds = 0;
         let streak = 0;
         let maxStreak = 0;
-
         entries.forEach(entry => {
             totalSeconds += entry.durationSeconds;
             if (productiveCategories.has(entry.category)) {
                 productiveSeconds += entry.durationSeconds;
                 streak++;
-            } else {
+            }
+            else {
                 streak = 0;
             }
-            if (streak > maxStreak) maxStreak = streak;
+            if (streak > maxStreak)
+                maxStreak = streak;
         });
-
         const score = totalSeconds > 0 ? Math.round((productiveSeconds / totalSeconds) * 100) : 0;
-
         return {
             totalHours: (totalSeconds / 3600).toFixed(2),
             productiveHours: (productiveSeconds / 3600).toFixed(2),
@@ -45,34 +43,25 @@ export class AnalyticsService {
             maxFocusStreak: maxStreak, // in number of sessions
         };
     }
-
     // ─── Daily trend data (for line charts) ─────────────────
-    static async getDailyTrend(userId: string, days: number = 30) {
+    static async getDailyTrend(userId, days = 30) {
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
         startDate.setHours(0, 0, 0, 0);
-
         const entries = await TimeEntry.find({
             userId,
             startTime: { $gte: startDate, $lte: endDate },
             status: 'completed',
         }).lean();
-
         const productiveCategories = new Set(await CategoryService.getProductiveNames(userId));
-
         // Build a map: date → { totalSeconds, productiveSeconds, sessions }
-        const dateMap: Record<
-            string,
-            { totalSeconds: number; productiveSeconds: number; sessions: number; totalSessionDuration: number }
-        > = {};
-
+        const dateMap = {};
         // Pre-fill every date so we get zero days too
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
             const key = d.toISOString().split('T')[0];
             dateMap[key] = { totalSeconds: 0, productiveSeconds: 0, sessions: 0, totalSessionDuration: 0 };
         }
-
         entries.forEach((e) => {
             const key = e.date;
             if (!dateMap[key]) {
@@ -85,34 +74,29 @@ export class AnalyticsService {
                 dateMap[key].productiveSeconds += e.durationSeconds;
             }
         });
-
         return Object.entries(dateMap)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([date, d]) => ({
-                date,
-                totalHours: +(d.totalSeconds / 3600).toFixed(2),
-                productiveHours: +(d.productiveSeconds / 3600).toFixed(2),
-                sessions: d.sessions,
-                avgSessionMinutes: d.sessions > 0 ? +(d.totalSessionDuration / d.sessions / 60).toFixed(1) : 0,
-            }));
+            date,
+            totalHours: +(d.totalSeconds / 3600).toFixed(2),
+            productiveHours: +(d.productiveSeconds / 3600).toFixed(2),
+            sessions: d.sessions,
+            avgSessionMinutes: d.sessions > 0 ? +(d.totalSessionDuration / d.sessions / 60).toFixed(1) : 0,
+        }));
     }
-
     // ─── Weekly category comparison ─────────────────────────
-    static async getWeeklyCategoryComparison(userId: string, weeks: number = 4) {
+    static async getWeeklyCategoryComparison(userId, weeks = 4) {
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - weeks * 7);
         startDate.setHours(0, 0, 0, 0);
-
         const entries = await TimeEntry.find({
             userId,
             startTime: { $gte: startDate, $lte: endDate },
             status: 'completed',
         }).lean();
-
         // Group by ISO week → category → seconds
-        const weekMap: Record<string, Record<string, number>> = {};
-
+        const weekMap = {};
         entries.forEach((e) => {
             const d = new Date(e.startTime);
             // Get ISO week label: "Feb 3" style (Monday of that week)
@@ -120,78 +104,65 @@ export class AnalyticsService {
             const monday = new Date(d);
             monday.setDate(d.getDate() - day + 1);
             const weekLabel = `${monday.toLocaleString('en', { month: 'short' })} ${monday.getDate()}`;
-
-            if (!weekMap[weekLabel]) weekMap[weekLabel] = {};
+            if (!weekMap[weekLabel])
+                weekMap[weekLabel] = {};
             weekMap[weekLabel][e.category] = (weekMap[weekLabel][e.category] || 0) + e.durationSeconds;
         });
-
         // Flatten: array of { week, category, hours }
-        const result: { week: string; category: string; hours: number }[] = [];
+        const result = [];
         for (const [week, cats] of Object.entries(weekMap)) {
             for (const [category, seconds] of Object.entries(cats)) {
                 result.push({ week, category, hours: +(seconds / 3600).toFixed(2) });
             }
         }
-
         return result;
     }
-
     // ─── Heatmap data (GitHub-style) ────────────────────────
-    static async getHeatmapData(userId: string, days: number = 365) {
+    static async getHeatmapData(userId, days = 365) {
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
         startDate.setHours(0, 0, 0, 0);
-
         const entries = await TimeEntry.find({
             userId,
             startTime: { $gte: startDate, $lte: endDate },
             status: 'completed',
         }).lean();
-
         // Build map: YYYY-MM-DD → total hours
-        const dateMap: Record<string, number> = {};
+        const dateMap = {};
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
             dateMap[d.toISOString().split('T')[0]] = 0;
         }
-
         entries.forEach((e) => {
             if (dateMap[e.date] !== undefined) {
                 dateMap[e.date] += e.durationSeconds / 3600;
             }
         });
-
         return Object.entries(dateMap)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([date, hours]) => ({
-                date,
-                hours: +hours.toFixed(2),
-            }));
+            date,
+            hours: +hours.toFixed(2),
+        }));
     }
-
     // ─── Insights (most productive day, avg session, etc.) ──
-    static async getInsights(userId: string) {
+    static async getInsights(userId) {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 90);
         startDate.setHours(0, 0, 0, 0);
-
         const entries = await TimeEntry.find({
             userId,
             startTime: { $gte: startDate },
             status: 'completed',
         }).lean();
-
         const productiveCategories = new Set(await CategoryService.getProductiveNames(userId));
-
         // Group by day-of-week
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const dayTotals = new Array(7).fill(0);
         const dayCounts = new Array(7).fill(0);
-
         let totalDuration = 0;
         let sessionCount = entries.length;
-        const categoryTotals: Record<string, number> = {};
-
+        const categoryTotals = {};
         entries.forEach((e) => {
             const dow = new Date(e.startTime).getDay();
             dayTotals[dow] += e.durationSeconds;
@@ -199,7 +170,6 @@ export class AnalyticsService {
             totalDuration += e.durationSeconds;
             categoryTotals[e.category] = (categoryTotals[e.category] || 0) + e.durationSeconds;
         });
-
         // Most productive day of the week (highest avg hours)
         let bestDayIdx = 0;
         let bestDayAvg = 0;
@@ -212,23 +182,19 @@ export class AnalyticsService {
                 bestDayIdx = i;
             }
         });
-
         // Top category
         const topCategory = Object.entries(categoryTotals).sort(([, a], [, b]) => b - a)[0];
-
         // Average session length
         const avgSessionMinutes = sessionCount > 0 ? +(totalDuration / sessionCount / 60).toFixed(1) : 0;
-
         // Productive percentage
         let productiveSeconds = 0;
         entries.forEach((e) => {
-            if (productiveCategories.has(e.category)) productiveSeconds += e.durationSeconds;
+            if (productiveCategories.has(e.category))
+                productiveSeconds += e.durationSeconds;
         });
-
         // Daily average
         const uniqueDays = new Set(entries.map((e) => e.date)).size || 1;
         const dailyAvgHours = +(totalDuration / uniqueDays / 3600).toFixed(2);
-
         return {
             mostProductiveDay: dayNames[bestDayIdx],
             mostProductiveDayHours: +(bestDayAvg / 3600).toFixed(2),

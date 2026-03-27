@@ -84,6 +84,9 @@ const TimeEntrySchema = new Schema<ITimeEntry>(
 TimeEntrySchema.index({ userId: 1, date: 1 });
 // Index for finding running entries
 TimeEntrySchema.index({ userId: 1, status: 1 });
+// Covers frequently used filters for recent completed and running entry lookups
+TimeEntrySchema.index({ userId: 1, status: 1, startTime: -1 });
+TimeEntrySchema.index({ userId: 1, status: 1, date: 1 });
 
 const TimeEntry: Model<ITimeEntry> =
   mongoose.models.TimeEntry || mongoose.model<ITimeEntry>('TimeEntry', TimeEntrySchema);
