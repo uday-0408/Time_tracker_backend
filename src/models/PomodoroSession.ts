@@ -2,9 +2,8 @@ import mongoose, { Schema, Model, Document } from 'mongoose';
 
 /**
  * Tracks pomodoro session metadata per user per day.
- * Work/break time entries are still created via the normal TimeEntry flow
- * so analytics stay consistent. This model only stores the pomodoro counter
- * and the user's preferred mode for the day.
+ * Pomodoro timer operates independently from the main time-tracker, 
+ * tracking its own cycles and phases without creating TimeEntry records.
  */
 export interface IPomodoroSession extends Document {
   userId: mongoose.Types.ObjectId | string;
@@ -59,7 +58,7 @@ const PomodoroSessionSchema = new Schema<IPomodoroSession>(
     customBreakMinutes: {
       type: Number,
       default: 5,
-      min: 1,
+      min: 0,
       max: 60,
     },
     activePhase: {

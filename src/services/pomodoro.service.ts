@@ -1,10 +1,8 @@
 import PomodoroSession from '../models/PomodoroSession.js';
-import { TimeService } from './time.service.js';
 
 /**
- * PomodoroService orchestrates pomodoro cycles on top of the existing
- * time-tracking system. Work and break periods are recorded as normal
- * TimeEntries so they feed into analytics and EOD summaries seamlessly.
+ * PomodoroService orchestrates pomodoro cycles independently of the 
+ * time-tracking system.
  *
  * Phase state (activePhase, phaseStartedAt, pausedAt, totalPausedSeconds)
  * is persisted in the PomodoroSession document so the timer survives
@@ -17,11 +15,11 @@ export class PomodoroService {
     phase: 'work' | 'break'
   ): number {
     if (phase === 'work') {
-      if (session.mode === 'custom') return (session.customWorkMinutes || 25) * 60;
+      if (session.mode === 'custom') return (session.customWorkMinutes ?? 25) * 60;
       if (session.mode === '50/10') return 50 * 60;
       return 25 * 60;
     } else {
-      if (session.mode === 'custom') return (session.customBreakMinutes || 5) * 60;
+      if (session.mode === 'custom') return (session.customBreakMinutes ?? 5) * 60;
       if (session.mode === '50/10') return 10 * 60;
       return 5 * 60;
     }
@@ -62,8 +60,6 @@ export class PomodoroService {
       if (elapsedSec >= phaseDuration) {
         // Phase expired while user was away — reset to idle.
         // Increment the completed counter so the user gets credit.
-        // Do NOT call TimeService.stopEntry — the original entry may
-        // already be stopped or a different entry may be running now.
         const wasPhase = session.activePhase;
         session.activePhase = 'idle';
         session.phaseStartedAt = null;
@@ -79,18 +75,8 @@ export class PomodoroService {
     return session;
   }
 
-  /**
-   * Start a work pomodoro — creates a TimeEntry and records phase state.
-   */
   static async startWork(userId: string, category: string) {
     const date = new Date().toISOString().split('T')[0];
-
-    // Create the time entry for tracking
-    const entry = await TimeService.startEntry(
-      userId,
-      category,
-      `Pomodoro work`
-    );
 
     // Persist phase state
     const session = await PomodoroSession.findOneAndUpdate(
@@ -108,54 +94,60 @@ export class PomodoroService {
       { upsert: true, new: true }
     );
 
-    return { session, entry };
+    return { session };
   }
 
-  /**
-   * Called when a work pomodoro finishes.
-   * - Stops the running TimeEntry
-   * - Increments the pomodoro counter
-   * - Auto-starts a "Break" TimeEntry for the break period
-   * - Transitions phase to 'break'
-   */
   static async completePomodoro(userId: string, category: string) {
-    // Stop the current work entry
-    await TimeService.stopEntry(userId);
-
     const date = new Date().toISOString().split('T')[0];
-    const session = await PomodoroSession.findOneAndUpdate(
-      { userId, date },
-      {
-        $inc: { completedPomodoros: 1 },
-        $set: {
-          activePhase: 'break',
-          phaseStartedAt: new Date(),
-          phaseCategory: category,
-          pausedAt: null,
-          totalPausedSeconds: 0,
+    
+    // Get session to check modes
+    let existingSession = await PomodoroSession.findOne({ userId, date });
+    const breakDuration = existingSession ? this.getPhaseDuration(existingSession, 'break') : 5 * 60;
+
+    if (breakDuration > 0) {
+      const session = await PomodoroSession.findOneAndUpdate(
+        { userId, date },
+        {
+          $inc: { completedPomodoros: 1 },
+          $set: {
+            activePhase: 'break',
+            phaseStartedAt: new Date(),
+            phaseCategory: category,
+            pausedAt: null,
+            totalPausedSeconds: 0,
+          },
+          $setOnInsert: { mode: '25/5', completedBreaks: 0 },
         },
-        $setOnInsert: { mode: '25/5', completedBreaks: 0 },
-      },
-      { upsert: true, new: true }
-    );
+        { upsert: true, new: true }
+      );
 
-    // Auto-start a break entry so it shows in time tracking
-    const breakEntry = await TimeService.startEntry(
-      userId,
-      'Break',
-      `Pomodoro break after ${category}`
-    );
+      return { session };
+    } else {
+      const session = await PomodoroSession.findOneAndUpdate(
+        { userId, date },
+        {
+          $inc: { completedPomodoros: 1 },
+          $set: {
+            activePhase: 'idle',
+            phaseStartedAt: null,
+            phaseCategory: '',
+            pausedAt: null,
+            totalPausedSeconds: 0,
+          },
+          $setOnInsert: { mode: '25/5', completedBreaks: 0 },
+        },
+        { upsert: true, new: true }
+      );
 
-    return { session, breakEntry };
+      return { session };
+    }
   }
 
   /**
    * Called when a break period finishes.
-   * Stops the break TimeEntry, increments break counter, resets phase to idle.
+   * Increments break counter, resets phase to idle.
    */
   static async completeBreak(userId: string) {
-    await TimeService.stopEntry(userId);
-
     const date = new Date().toISOString().split('T')[0];
     const session = await PomodoroSession.findOneAndUpdate(
       { userId, date },
@@ -176,11 +168,9 @@ export class PomodoroService {
   }
 
   /**
-   * Cancel an active pomodoro — stops the TimeEntry and resets phase to idle.
+   * Cancel an active pomodoro — resets phase to idle.
    */
   static async cancelPomodoro(userId: string) {
-    await TimeService.stopEntry(userId);
-
     const date = new Date().toISOString().split('T')[0];
     const session = await PomodoroSession.findOneAndUpdate(
       { userId, date },
