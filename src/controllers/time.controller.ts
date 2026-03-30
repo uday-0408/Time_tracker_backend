@@ -55,7 +55,8 @@ export const stopTracking = async (req: Request, res: Response) => {
 export const getToday = async (req: Request, res: Response) => {
     try {
         const { userId } = todayQuerySchema.parse(req.query);
-
+        // Cache for 2 seconds since data changes frequently
+        res.set('Cache-Control', 'private, max-age=2');
         const data = await TimeService.getTodayData(userId);
         res.json({ success: true, ...data });
     } catch (error) {
@@ -66,7 +67,8 @@ export const getToday = async (req: Request, res: Response) => {
 export const getHistory = async (req: Request, res: Response) => {
     try {
         const { userId, days } = historyQuerySchema.parse(req.query);
-
+        // Cache history for 5 minutes since it changes infrequently
+        res.set('Cache-Control', 'private, max-age=300');
         const history = await TimeService.getHistory(userId, days);
         res.json({ success: true, history });
     } catch (error) {

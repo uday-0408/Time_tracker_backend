@@ -2,7 +2,16 @@ import mongoose from 'mongoose';
 import TimeEntry from '../models/TimeEntry.js';
 
 export class TimeService {
+    static readonly ALLOWED_CATEGORIES = ['Python', 'SQL', 'Midas', 'Datasetu', 'TT'];
+
     static async startEntry(userId: string, category: string, description?: string) {
+        // Reject 'Break' category — breaks are managed by PomodoroSession only
+        if (category === 'Break' || category === 'break') {
+            throw new Error('Break is reserved for the Pomodoro system and cannot be manually tracked.');
+        }
+        if (!this.ALLOWED_CATEGORIES.includes(category)) {
+            throw new Error(`Invalid category. Allowed: ${this.ALLOWED_CATEGORIES.join(', ')}`);
+        }
         // Enforce single active session: stop any running entry first
         await this.stopEntry(userId);
 

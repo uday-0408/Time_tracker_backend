@@ -13,7 +13,7 @@ const TimeEntrySchema = new Schema<ITimeEntry>(
     category: {
       type: String,
       required: true,
-      enum: ['Python', 'SQL', 'Midas', 'Datasetu', 'Break', 'TT'],
+      enum: ['Python', 'SQL', 'Midas', 'Datasetu', 'TT'],
     },
     startTime: {
       type: Date,

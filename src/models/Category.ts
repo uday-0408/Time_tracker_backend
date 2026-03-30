@@ -23,7 +23,6 @@ export const AVAILABLE_TAGS = [
   'DevOps',
   'Design',
   'Learning',
-  'Break',
   'Other',
 ];
 
@@ -39,8 +38,7 @@ export const DEFAULT_CATEGORIES = [
   { name: 'SQL', color: 'green', tag: 'Development', isProductive: true, order: 1 },
   { name: 'Midas', color: 'purple', tag: 'Development', isProductive: true, order: 2 },
   { name: 'Datasetu', color: 'orange', tag: 'Development', isProductive: true, order: 3 },
-  { name: 'Break', color: 'gray', tag: 'Break', isProductive: false, order: 4 },
-  { name: 'TT', color: 'red', tag: 'Other', isProductive: false, order: 5 },
+  { name: 'TT', color: 'red', tag: 'Other', isProductive: false, order: 4 },
 ];
 
 const CategorySchema = new Schema<ICategory>(
