@@ -19,7 +19,7 @@ export class PomodoroService {
         }
         else {
             if (session.mode === 'custom')
-                return (session.customBreakMinutes ?? 5) * 60;
+                return (session.customBreakMinutes !== undefined && session.customBreakMinutes !== null ? session.customBreakMinutes : 5) * 60;
             if (session.mode === '50/10')
                 return 10 * 60;
             return 5 * 60;
@@ -179,8 +179,8 @@ export class PomodoroService {
         const date = new Date().toISOString().split('T')[0];
         const updateFields = { mode };
         if (mode === 'custom') {
-            updateFields.customWorkMinutes = customWorkMinutes ?? 25;
-            updateFields.customBreakMinutes = customBreakMinutes ?? 5;
+            updateFields.customWorkMinutes = customWorkMinutes !== undefined && customWorkMinutes !== null ? customWorkMinutes : 25;
+            updateFields.customBreakMinutes = customBreakMinutes !== undefined && customBreakMinutes !== null ? customBreakMinutes : 5;
         }
         const session = await PomodoroSession.findOneAndUpdate({ userId, date }, { $set: updateFields, $setOnInsert: { completedPomodoros: 0, completedBreaks: 0 } }, { upsert: true, new: true });
         return session;

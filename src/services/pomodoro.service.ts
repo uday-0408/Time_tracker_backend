@@ -19,7 +19,7 @@ export class PomodoroService {
       if (session.mode === '50/10') return 50 * 60;
       return 25 * 60;
     } else {
-      if (session.mode === 'custom') return (session.customBreakMinutes ?? 5) * 60;
+      if (session.mode === 'custom') return (session.customBreakMinutes !== undefined && session.customBreakMinutes !== null ? session.customBreakMinutes : 5) * 60;
       if (session.mode === '50/10') return 10 * 60;
       return 5 * 60;
     }
@@ -234,8 +234,8 @@ export class PomodoroService {
 
     const updateFields: Record<string, unknown> = { mode };
     if (mode === 'custom') {
-      updateFields.customWorkMinutes = customWorkMinutes ?? 25;
-      updateFields.customBreakMinutes = customBreakMinutes ?? 5;
+      updateFields.customWorkMinutes = customWorkMinutes !== undefined && customWorkMinutes !== null ? customWorkMinutes : 25;
+      updateFields.customBreakMinutes = customBreakMinutes !== undefined && customBreakMinutes !== null ? customBreakMinutes : 5;
     }
 
     const session = await PomodoroSession.findOneAndUpdate(
