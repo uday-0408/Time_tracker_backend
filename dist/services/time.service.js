@@ -1,6 +1,13 @@
 import TimeEntry from '../models/TimeEntry.js';
 export class TimeService {
     static async startEntry(userId, category, description) {
+        // Reject 'Break' category — breaks are managed by PomodoroSession only
+        if (category === 'Break' || category === 'break') {
+            throw new Error('Break is reserved for the Pomodoro system and cannot be manually tracked.');
+        }
+        if (!this.ALLOWED_CATEGORIES.includes(category)) {
+            throw new Error(`Invalid category. Allowed: ${this.ALLOWED_CATEGORIES.join(', ')}`);
+        }
         // Enforce single active session: stop any running entry first
         await this.stopEntry(userId);
         const now = new Date();
@@ -127,3 +134,4 @@ export class TimeService {
         return entry;
     }
 }
+TimeService.ALLOWED_CATEGORIES = ['Python', 'SQL', 'Midas', 'Datasetu', 'TT'];

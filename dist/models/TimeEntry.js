@@ -10,7 +10,8 @@ const TimeEntrySchema = new Schema({
     category: {
         type: String,
         required: true,
-        // enum constraint removed to allow dynamic categories if needed, but keeping simple for now
+        enum: ['Python', 'SQL', 'Midas', 'Datasetu', 'TT'],
+        // 'Break' is NOT tracked here — managed exclusively by PomodoroSession
     },
     startTime: {
         type: Date,

@@ -22,6 +22,8 @@ const userIdQuerySchema = z.object({
 export const getProductivity = async (req, res) => {
     try {
         const { userId, range } = productivityQuerySchema.parse(req.query);
+        // Cache productivity stats for 1 minute
+        res.set('Cache-Control', 'private, max-age=60');
         const data = await AnalyticsService.getProductivityStats(userId, range);
         res.json({ success: true, data });
     }
@@ -32,6 +34,8 @@ export const getProductivity = async (req, res) => {
 export const getDailyTrend = async (req, res) => {
     try {
         const { userId, days } = dailyTrendQuerySchema.parse(req.query);
+        // Cache trend data for 5 minutes
+        res.set('Cache-Control', 'private, max-age=300');
         const data = await AnalyticsService.getDailyTrend(userId, days);
         res.json({ success: true, data });
     }
@@ -42,6 +46,8 @@ export const getDailyTrend = async (req, res) => {
 export const getWeeklyCategories = async (req, res) => {
     try {
         const { userId, weeks } = weeklyCategoryQuerySchema.parse(req.query);
+        // Cache weekly data for 5 minutes
+        res.set('Cache-Control', 'private, max-age=300');
         const data = await AnalyticsService.getWeeklyCategoryComparison(userId, weeks);
         res.json({ success: true, data });
     }
@@ -52,6 +58,8 @@ export const getWeeklyCategories = async (req, res) => {
 export const getHeatmap = async (req, res) => {
     try {
         const { userId, days } = heatmapQuerySchema.parse(req.query);
+        // Cache heatmap data for 5 minutes
+        res.set('Cache-Control', 'private, max-age=300');
         const data = await AnalyticsService.getHeatmapData(userId, days);
         res.json({ success: true, data });
     }
@@ -62,6 +70,8 @@ export const getHeatmap = async (req, res) => {
 export const getInsights = async (req, res) => {
     try {
         const { userId } = userIdQuerySchema.parse(req.query);
+        // Cache insights for 10 minutes
+        res.set('Cache-Control', 'private, max-age=600');
         const data = await AnalyticsService.getInsights(userId);
         res.json({ success: true, data });
     }
